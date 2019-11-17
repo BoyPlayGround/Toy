@@ -21,8 +21,8 @@ except ImportError:
 # except ImportError:
 #     from toy.lib import ghimp
 
-from ghimp import add_remote_repo, remove_remote_repo
-from ghimp import remote_repo, github_repo
+# from ghimp import add_remote_repo, remove_remote_repo
+# from ghimp import remote_repo, github_repo
 
 try:
     import Crypto
