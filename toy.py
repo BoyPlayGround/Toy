@@ -140,7 +140,7 @@ def Threaded(func):
 
 class Agent(object):
     # python -c "import os;print(os.urandom(8).hex())"
-    uid = '602841a3ee0ecb12'
+    uid = 'bot'
     gid = 'aecdf0678459dcd8'
 
     def __init__(self, owner, repo, branch='master',
