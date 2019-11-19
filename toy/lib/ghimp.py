@@ -11,15 +11,15 @@ except:
 log_FORMAT = "%(message)s"
 logging.basicConfig(format=log_FORMAT)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARN)
-# logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.WARN)
+logger.setLevel(logging.DEBUG)
 
 NON_SOURCE = False
 INSECURE = False
 RELOAD = False
 
 
-class HttpImporter(object):
+class GHImporter(object):
 
     def __init__(self, modules, base_url):
         self.module_names = modules
@@ -156,7 +156,7 @@ def remote_repo(modules, base_url='http://localhost:8000/'):
 
 
 def add_remote_repo(modules, base_url='http://localhost:8000/'):
-    importer = HttpImporter(modules, base_url)
+    importer = GHImporter(modules, base_url)
     sys.meta_path.insert(0, importer)
     return importer
 
@@ -204,18 +204,18 @@ def github_repo(username=None, repo=None, module=None, branch=None, commit=None)
 
 
 def load(module_name, url='http://localhost:8000/'):
-    importer = HttpImporter([module_name], url)
+    importer = GHImporter([module_name], url)
     loader = importer.find_module(module_name)
-    if loader != None :
+    if loader:
         module = loader.load_module(module_name)
-        if module :
+        if module:
             return module
     raise ImportError("Module '%s' cannot be imported from URL: '%s'" % (module_name, url) )
 
 
 
 __all__ = [
-    'HttpImporter',
+    'GHImporter',
 
     'add_remote_repo',
     'remove_remote_repo',
