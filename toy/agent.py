@@ -562,5 +562,9 @@ class Agent(object):
             time.sleep(random.randint(10, 50))
 
 
-if __name__ == '__main__':
+def run():
     Agent()
+
+
+if __name__ == '__main__':
+    Agent('boyplayground', 'Toy', debug=True)
